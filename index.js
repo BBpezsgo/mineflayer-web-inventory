@@ -80,7 +80,23 @@ module.exports = /** @type {import('./index').default} */ function (bot, options
 
   app.use(options.webPath, express.static(path.join(__dirname, 'client', 'public')))
 
-  io.on('connection', (socket) => {
+  io.on('connection', (/** @type {import('socket.io').Socket} */ socket) => {
+    /** @type {Array<{ id: string; type: 'chest' | 'player'; }>} */
+    const targets = [ ]
+
+    for (const player in bot.players) {
+      if (player === bot.username) { continue }
+      targets.push({
+        id: player,
+        type: 'player',
+      })
+    }
+
+    // socket.emit('targets', targets)
+
+    /**
+     * @param {import('prismarine-windows').Window<unknown>} window
+     */
     function emitWindow (window) {
       // Use a copy of window to avoid modifying the internal state of mineflayer
       window = Object.assign({}, window)
@@ -186,6 +202,17 @@ module.exports = /** @type {import('./index').default} */ function (bot, options
       window.once('close', windowCloseHandler)
     }
     bot.on('windowOpen', windowOpenHandler)
+
+    socket.on('message', async (message) => {
+      if (message.type === 'item-drop') {
+        if (message.from !== message.to) {
+          console.log(`[mineflayer-web-inventory] Moving item from ${message.from} to ${message.to}`)
+          await bot.moveSlotItem(message.from, message.to)
+        }
+      } else if (message.type === 'item-send') {
+        console.log(`[mineflayer-web-inventory] Sending item from ${message.from} to ${JSON.stringify(message.to)}`)
+      }
+    })
 
     socket.once('disconnect', () => {
       debounceUpdate.cancel()

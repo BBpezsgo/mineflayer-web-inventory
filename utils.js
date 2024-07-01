@@ -1,16 +1,29 @@
 const path = require('path')
 const fs = require('fs')
 
-const rawMcData = require('minecraft-data')
+const resourcePack = require('../Minecraft-Resource-Pack-Converter')
 
-const windowNamesOrig = {
-  inventory: ['minecraft:inventory'],
-  chest: ['minecraft:generic_9x3', 'minecraft:chest'],
+const rawMcData = require('minecraft-data')
+const { PNG } = require('pngjs')
+const { ResourcePackZip } = require('../Minecraft-Resource-Pack-Converter/src/pack')
+
+/**
+ * @type {{ [name: string]: string[] }}
+ */
+const windowNames = {
+  'inventory': ['minecraft:inventory'],
+  'chest': ['minecraft:generic_9x3', 'minecraft:chest'],
   'crafting-table': ['minecraft:crafting', 'minecraft:crafting_table'],
-  furnace: ['minecraft:furnace'],
+  'furnace': ['minecraft:furnace'],
   'large-chest': ['minecraft:generic_9x6', 'minecraft:chest']
 }
-const windowNames = windowNamesOrig
+
+/** @type {ResourcePackZip | null} */
+let defaultResourcePack = null
+
+ResourcePackZip.read('C:\\Users\\bazsi\\AppData\\Roaming\\.tlauncher\\legacy\\Minecraft\\game\\versions\\Fabric 1.20.4\\Fabric 1.20.4.jar')
+  .then(v => { defaultResourcePack = v })
+  .catch(console.error)
 
 // This is just to simulate a unsuported window on the tests
 let failStreak = []
@@ -46,8 +59,50 @@ function getWindowName (window) {
   ]
 }
 
-function addItemData (mcData, mcAssets, item) {
-  if (!item || !mcData) return item
+/**
+ * @exports
+ * @typedef {import('prismarine-item').Item & {
+ *   texture?: string;
+ *   durabilityLeft?: number;
+ * }} DetailedItem
+ */
+
+/**
+ * @param {import('minecraft-data').IndexedData | import('minecraft-assets').Assets} mcData
+ * @param {import('minecraft-assets').Assets} mcAssets
+ * @param {DetailedItem} item
+ * @returns {DetailedItem}
+ */
+function addItemData(mcData, mcAssets, item) {
+  if (!item) return item
+
+  if (!item.texture && defaultResourcePack) {
+    const modelPath = defaultResourcePack.namespaces['minecraft'].getModels('item')?.[item.name]
+    if (modelPath) {
+      const data = resourcePack.utils.renderModel(modelPath, defaultResourcePack, 32, 32)
+      if (data) {
+        const png = new PNG({
+            width: data.width,
+            height: data.height,
+            filterType: -1,
+        })
+        // @ts-ignore
+        png.data = data.data
+        // @ts-ignore
+        png.pack()
+        const chunks = [ ]
+        // @ts-ignore
+        png.on('data', function (/** @type {any} */ chunk) { chunks.push(chunk) })
+        // @ts-ignore
+        png.on('end', function () {
+          const result = Buffer.concat(chunks)
+          item.texture = `data:image/png;base64,${result.toString('base64')}`
+        })
+      }
+    }
+  }
+
+  if (!mcData) { return item }
 
   try {
     const blockModels = JSON.parse(fs.readFileSync(path.join(mcAssets.directory, 'blocks_models.json'), 'utf8'))
