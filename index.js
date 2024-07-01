@@ -7,6 +7,7 @@ module.exports = function (bot, options = {}) {
   const express = options.express ?? require('express')
   const app = options.app ?? express()
   const http = options.http ?? require('http').createServer(app)
+  /** @ts-ignore @type {import('socket.io').Server} **/
   const io = options.io ?? require('socket.io')(http)
   options.port = options.port ?? 3000
   options.windowUpdateDebounceTime = options.windowUpdateDebounceTime ?? options.debounceTime ?? 100
@@ -14,6 +15,7 @@ module.exports = function (bot, options = {}) {
   if (!options.webPath.startsWith('/')) options.webPath = '/' + options.webPath
 
   const path = require('path')
+  // @ts-ignore
   const _ = require('lodash')
 
   bot.webInventory = {
@@ -46,8 +48,10 @@ module.exports = function (bot, options = {}) {
   }
 
   // Try to load mcData
+  /** @type {import('minecraft-data').IndexedData | import('minecraft-assets').Assets} */
   let mcData = require('minecraft-data')(bot.version)
   if (!mcData) {
+    // @ts-ignore
     mcData = require('minecraft-assets')(DEFAULT_VERSION)
     if (mcData) {
       console.log(`(mineflayer-web-inventory) WARNING: Please, specify a bot.version or mineflayer-web-inventory may not work properly. Using version ${DEFAULT_VERSION} for minecraft-mcData`)
@@ -58,8 +62,10 @@ module.exports = function (bot, options = {}) {
   }
 
   // Try to load mcAssets
+  /** @type {import('minecraft-assets').Assets} */ // @ts-ignore
   let mcAssets = require('minecraft-assets')(bot.version)
   if (!mcAssets) {
+    // @ts-ignore
     mcAssets = require('minecraft-assets')(DEFAULT_VERSION)
     if (mcAssets) {
       console.log(`(mineflayer-web-inventory) WARNING: Please, specify a bot.version or mineflayer-web-inventory may not work properly. Using version ${DEFAULT_VERSION} for minecraft-assets`)
@@ -110,6 +116,12 @@ module.exports = function (bot, options = {}) {
       updateObject = defaultUpdateObject
     }, bot.webInventory.options.windowUpdateDebounceTime)
 
+    /**
+     * @param {number} slot
+     * @param {import('prismarine-item').Item | null} oldItem
+     * @param {import('prismarine-item').Item | null} newItem
+     * @param {import('prismarine-windows').Window<import("mineflayer").StorageEvents>} window
+     */
     function update (slot, oldItem, newItem, window) {
       const originalSlot = slot
       // Use copies of oldItem and newItem to avoid modifying the internal state of mineflayer

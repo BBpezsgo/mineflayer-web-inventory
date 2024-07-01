@@ -1,0 +1,19 @@
+{
+    "compilerOptions": {
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "target": "ES2020",
+        "allowImportingTsExtensions": true,
+        "checkJs": true,
+        "strictNullChecks": true,
+        "strictFunctionTypes": true,
+        "skipLibCheck": true,
+        "skipDefaultLibCheck": true
+    },
+    "exclude": [
+        "node_modules",
+        "**/node_modules/*",
+        "client/public/build/*",
+        "example.js"
+    ]
+}

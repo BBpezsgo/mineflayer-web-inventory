@@ -14,10 +14,16 @@ const windowNames = windowNamesOrig
 
 // This is just to simulate a unsuported window on the tests
 let failStreak = []
+/**
+ * @param {any[]} newFailStreak
+ */
 function setFailStreak (newFailStreak) {
   failStreak = newFailStreak
 }
 
+/**
+ * @param {import('prismarine-windows').Window<unknown>} window
+ */
 function getWindowName (window) {
   if (failStreak.shift()) return null
 
@@ -34,6 +40,7 @@ function getWindowName (window) {
 
   if (Object.keys(windowNames).includes(window.type)) return window.type
   return Object.keys(windowNames)[
+    // @ts-ignore
     Object.values(windowNames).findIndex((e) => e.includes(window.type))
   ]
 }
