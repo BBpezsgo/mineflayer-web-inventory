@@ -26,6 +26,7 @@ function setFailStreak (newFailStreak) {
  */
 function getWindowName (window) {
   if (failStreak.shift()) return null
+  if (typeof window.type === 'number') return null
 
   // Until version 1.13 (included), chest and large chest had both the type 'minecraft:chest'
   // We determine which it is by it's number of slots
@@ -49,16 +50,16 @@ function addItemData (mcData, mcAssets, item) {
   if (!item || !mcData) return item
 
   try {
-    const blockModels = JSON.parse(fs.readFileSync(path.join(mcAssets.directory, 'blocks_models.json')))
+    const blockModels = JSON.parse(fs.readFileSync(path.join(mcAssets.directory, 'blocks_models.json'), 'utf8'))
 
     if (mcData.version['<=']('1.12.2')) {
       // Fixes the name
       const itemVariations = mcData.itemsByName[item.name]?.variations ?? mcData.blocksByName[item.name]?.variations
-      if (itemVariations) { item.displayName = itemVariations.find(variation => variation.metadata === item.metadata).displayName }
+      if (itemVariations) { item.displayName = itemVariations.find(variation => variation.metadata === item.metadata)?.displayName ?? item.displayName }
 
       // Tries to fix the texture
-      let minecraftName =
-      rawMcData.legacy.pc.items[item.type + ':' + item.metadata]?.substr('minecraft:'.length)
+      // @ts-ignore
+      let minecraftName = rawMcData.legacy.pc.items[item.type + ':' + item.metadata]?.substr('minecraft:'.length)
 
       if (minecraftName) {
         if (minecraftName.includes('[')) minecraftName = minecraftName.substr(0, minecraftName.indexOf['['] - 1)
@@ -81,7 +82,7 @@ function addItemData (mcData, mcAssets, item) {
     console.log('mineflayer-web-inventory error. trying to continue')
     console.log(err)
   } finally {
-    if (!item.texture) item.texture = mcAssets.textureContent[item.name].texture
+    if (!item.texture && mcAssets.textureContent[item.name]) item.texture = mcAssets.textureContent[item.name].texture
   }
 
   // Add durability left

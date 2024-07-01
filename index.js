@@ -2,7 +2,7 @@ const { getWindowName, addItemData } = require('./utils')
 
 const DEFAULT_VERSION = '1.18'
 
-module.exports = function (bot, options = {}) {
+module.exports = /** @type {import('./index').default} */ function (bot, options = {}) {
   options.webPath = options.webPath ?? options.path ?? '/'
   const express = options.express ?? require('express')
   const app = options.app ?? express()
@@ -11,6 +11,16 @@ module.exports = function (bot, options = {}) {
   const io = options.io ?? require('socket.io')(http)
   options.port = options.port ?? 3000
   options.windowUpdateDebounceTime = options.windowUpdateDebounceTime ?? options.debounceTime ?? 100
+
+  http.on('listening', () => {
+    bot.webInventory.isRunning = true
+    console.log(`[mineflayer-web-inventory] Inventory web server running on`, http.address())
+  })
+
+  http.on('close', () => {
+    bot.webInventory.isRunning = false
+    console.log(`[mineflayer-web-inventory] Inventory web server closed`)
+  })
 
   if (!options.webPath.startsWith('/')) options.webPath = '/' + options.webPath
 
@@ -25,25 +35,18 @@ module.exports = function (bot, options = {}) {
 
   const start = () => {
     return new Promise((resolve, reject) => {
-      if (bot.webInventory.isRunning) return reject(new Error('(mineflayer-web-inventory) INFO: mineflayer-web-inventory is already running'))
+      if (bot.webInventory.isRunning) return reject(new Error('[mineflayer-web-inventory] INFO: mineflayer-web-inventory is already running'))
 
-      http.listen(options.port, () => {
-        bot.webInventory.isRunning = true
-        console.log(`(mineflayer-web-inventory) INFO: Inventory web server running on *:${options.port}`)
-        resolve()
-      })
+      // @ts-ignore
+      http.listen(options.port, resolve)
     })
   }
 
   const stop = () => {
     return new Promise((resolve, reject) => {
-      if (!bot.webInventory.isRunning) return reject(new Error('(mineflayer-web-inventory) INFO: mineflayer-web-inventory is not running'))
+      if (!bot.webInventory.isRunning) return reject(new Error('[mineflayer-web-inventory] INFO: mineflayer-web-inventory is not running'))
 
-      http.close(() => {
-        bot.webInventory.isRunning = false
-        console.log('(mineflayer-web-inventory) INFO: Inventory web server closed')
-        resolve()
-      })
+      http.close(resolve)
     })
   }
 
@@ -54,9 +57,9 @@ module.exports = function (bot, options = {}) {
     // @ts-ignore
     mcData = require('minecraft-assets')(DEFAULT_VERSION)
     if (mcData) {
-      console.log(`(mineflayer-web-inventory) WARNING: Please, specify a bot.version or mineflayer-web-inventory may not work properly. Using version ${DEFAULT_VERSION} for minecraft-mcData`)
+      console.warn(`[mineflayer-web-inventory] WARNING: Please, specify a bot.version or mineflayer-web-inventory may not work properly. Using version ${DEFAULT_VERSION} for minecraft-mcData`)
     } else {
-      console.log('(mineflayer-web-inventory) ERROR: Unable to load minecraft-mcData')
+      console.error('[mineflayer-web-inventory] ERROR: Unable to load minecraft-mcData')
       return
     }
   }
@@ -68,9 +71,9 @@ module.exports = function (bot, options = {}) {
     // @ts-ignore
     mcAssets = require('minecraft-assets')(DEFAULT_VERSION)
     if (mcAssets) {
-      console.log(`(mineflayer-web-inventory) WARNING: Please, specify a bot.version or mineflayer-web-inventory may not work properly. Using version ${DEFAULT_VERSION} for minecraft-assets`)
+      console.warn(`[mineflayer-web-inventory] WARNING: Please, specify a bot.version or mineflayer-web-inventory may not work properly. Using version ${DEFAULT_VERSION} for minecraft-assets`)
     } else {
-      console.log('(mineflayer-web-inventory) ERROR: Couldn\'t load minecraft-assets')
+      console.error('[mineflayer-web-inventory] ERROR: Couldn\'t load minecraft-assets')
       return
     }
   }
@@ -82,6 +85,7 @@ module.exports = function (bot, options = {}) {
       // Use a copy of window to avoid modifying the internal state of mineflayer
       window = Object.assign({}, window)
 
+      /** @type {import('.').BotWindow} */
       const windowUpdate = { id: window.id, type: getWindowName(window), slots: {} }
 
       // If the window is not supported, we transform it into a inventory update
@@ -97,8 +101,9 @@ module.exports = function (bot, options = {}) {
       }
 
       const slots = Object.assign({}, window.slots)
-      for (const item in slots) {
-        if (slots[item]) slots[item] = addItemData(mcData, mcAssets, slots[item])
+      for (const slot in slots) {
+        const item = slots[slot]
+        if (item) slots[slot] = addItemData(mcData, mcAssets, item)
       }
       windowUpdate.slots = slots
       socket.emit('window', windowUpdate)
@@ -108,6 +113,7 @@ module.exports = function (bot, options = {}) {
     emitWindow(bot.currentWindow ?? bot.inventory)
 
     // Updates are queued here to allow debouncing the 'windowUpdate' event
+    /** @type {import('.').BotWindow} */
     const defaultUpdateObject = { id: null, type: null, slots: {} }
     let updateObject = defaultUpdateObject
 
@@ -147,7 +153,7 @@ module.exports = function (bot, options = {}) {
       }
 
       if (newItem) {
-        newItem.durabilityUsed = window.slots[originalSlot]?.durabilityUsed
+        newItem.durabilityUsed = window.slots[originalSlot]?.durabilityUsed ?? newItem.durabilityUsed
         newItem = addItemData(mcData, mcAssets, newItem)
       }
 
